@@ -15,6 +15,7 @@ AI 오디오 분리 기술(Demucs)을 활용하여 음악 파일에서 악기별
 ## 시스템 요구 사항 (Prerequisites)
 
 이 앱은 프론트엔드(Electron)와 AI 백엔드(Python)로 구성되어 있습니다. 실행을 위해 아래의 도구들이 컴퓨터에 설치되어 있어야 합니다.
+먼저 CMD 혹은 터미널을 실행시켜 주세요.
 
 1. Node.js (v14 이상) - 다운로드: https://nodejs.org/
 2. Python 3.10 이상 - 다운로드: https://www.python.org/
