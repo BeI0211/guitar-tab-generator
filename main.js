@@ -1,4 +1,5 @@
 const { app, BrowserWindow } = require('electron');
+const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 
@@ -26,9 +27,16 @@ function createWindow() {
 
 function startPythonBackend() {
     const pythonScript = path.join(__dirname, 'server.py');
-    const pythonExecutable = path.join(__dirname, 'venv', 'bin', 'python3');
+    const pythonExecutable = getPythonExecutable();
     
-    pythonProcess = spawn(pythonExecutable, [pythonScript]);
+    pythonProcess = spawn(pythonExecutable, [pythonScript], {
+        cwd: __dirname,
+        env: {
+            ...process.env,
+            PYTHONUTF8: '1',
+            PYTHONIOENCODING: 'utf-8'
+        }
+    });
     
     pythonProcess.stdout.on('data', (data) => {
         console.log(`[Python]: ${data}`);
@@ -41,6 +49,22 @@ function startPythonBackend() {
     pythonProcess.on('close', (code) => {
         console.log(`Python process exited with code ${code}`);
     });
+
+    pythonProcess.on('error', (err) => {
+        console.error(`Failed to start Python backend with "${pythonExecutable}":`, err);
+    });
+}
+
+function getPythonExecutable() {
+    const localPython = process.platform === 'win32'
+        ? path.join(__dirname, 'venv', 'Scripts', 'python.exe')
+        : path.join(__dirname, 'venv', 'bin', 'python3');
+
+    if (fs.existsSync(localPython)) {
+        return localPython;
+    }
+
+    return process.platform === 'win32' ? 'python' : 'python3';
 }
 
 app.whenReady().then(() => {
