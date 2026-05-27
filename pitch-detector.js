@@ -1,20 +1,7 @@
-import { BasicPitch, noteFramesToTime, addPitchBendsToNoteEvents, outputToNotesPoly } from 'https://esm.sh/@spotify/basic-pitch';
-
 /**
- * PitchDetector - AI-based polyphonic pitch detection using Basic Pitch
+ * PitchDetector - AI-based polyphonic pitch detection proxy via Web Worker
  */
-class PitchDetector {
-    constructor() {
-        this.modelUrl = 'https://unpkg.com/@spotify/basic-pitch@1.0.1/model/model.json';
-        this.basicPitch = null;
-    }
-
-    async init() {
-        if (!this.basicPitch) {
-            this.basicPitch = new BasicPitch(this.modelUrl);
-        }
-    }
-
+export class PitchDetector {
     /**
      * Resample audio buffer to 22050Hz and mixdown to Mono for Basic Pitch
      */
@@ -37,63 +24,60 @@ class PitchDetector {
     }
 
     /**
-     * Process full audio buffer and detect polyphonic notes
+     * Process full audio buffer using a background Web Worker
      */
-    async processAudio(audioBuffer, sensitivity = 5, minNoteDuration = 0.08, progressCallback = null) {
-        await this.init();
+    processAudio(audioBuffer, sensitivity = 5, minNoteDuration = 0.08, progressCallback = null) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                if (progressCallback) progressCallback(0.01, "오디오 변환 중(22050Hz)...");
+                const targetBuffer = await this.resampleAudio(audioBuffer);
+                const channelData = targetBuffer.getChannelData(0);
 
-        const targetBuffer = await this.resampleAudio(audioBuffer);
+                const worker = new Worker('pitch-worker.js', { type: 'module' });
+                
+                worker.onmessage = (e) => {
+                    const msg = e.data;
+                    if (msg.type === 'PROGRESS') {
+                        if (progressCallback) progressCallback(msg.pct, msg.text);
+                    } else if (msg.type === 'DONE') {
+                        worker.terminate();
+                        // Add NoteName calculation since worker just gives MIDI number
+                        const finalNotes = msg.notes.map(n => ({
+                            ...n,
+                            name: NoteUtils.midiToNoteName(Math.round(n.midi))
+                        }));
+                        resolve(finalNotes);
+                    } else if (msg.type === 'ERROR') {
+                        worker.terminate();
+                        reject(new Error(msg.error));
+                    }
+                };
+                
+                worker.onerror = (e) => {
+                    worker.terminate();
+                    reject(new Error("Worker Error: " + e.message));
+                };
 
-        // frameThreshold = 0.3, onsetThreshold = 0.5 are standard for Basic Pitch
-        const frameThreshold = Math.max(0.05, 0.5 - (sensitivity * 0.04)); 
-        const onsetThreshold = Math.max(0.05, 0.7 - (sensitivity * 0.04)); 
-
-        let framesOut = [];
-        let onsetsOut = [];
-        let contoursOut = [];
-        
-        await this.basicPitch.evaluateModel(
-            targetBuffer,
-            (frames, onsets, contours) => {
-                framesOut.push(...frames);
-                onsetsOut.push(...onsets);
-                contoursOut.push(...contours);
-            },
-            (pct) => {
-                if (progressCallback) progressCallback(pct);
+                worker.postMessage({
+                    type: 'PROCESS',
+                    payload: {
+                        channelData: channelData,
+                        sampleRate: 22050,
+                        sensitivity: sensitivity,
+                        minNoteDurationSec: minNoteDuration
+                    }
+                });
+            } catch (err) {
+                reject(err);
             }
-        );
-        
-        // Convert minimum note duration (seconds) to frames (~11.6ms per frame at 22050Hz with 256 hop size)
-        const frameLengthSec = 256 / 22050; // ~0.0116s
-        const minFrames = Math.max(3, Math.round(minNoteDuration / frameLengthSec));
-
-        const rawNotes = noteFramesToTime(
-            addPitchBendsToNoteEvents(
-                contoursOut,
-                outputToNotesPoly(framesOut, onsetsOut, frameThreshold, onsetThreshold, minFrames)
-            )
-        );
-        
-        return rawNotes.map(n => {
-            const start = n.startTimeSeconds;
-            const duration = n.durationSeconds;
-            
-            return {
-                midi: Math.round(n.pitchMidi),
-                startTime: start,
-                endTime: start + duration,
-                probability: n.amplitude,
-                name: NoteUtils.midiToNoteName(Math.round(n.pitchMidi))
-            };
-        }).filter(n => n.endTime > n.startTime);
+        });
     }
 }
 
 /**
  * Musical note utilities
  */
-class NoteUtils {
+export class NoteUtils {
     static NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
     
     static frequencyToMidi(frequency) {
@@ -129,7 +113,3 @@ class NoteUtils {
         };
     }
 }
-
-// Export for use globally to keep browser non-module compatibility
-window.PitchDetector = PitchDetector;
-window.NoteUtils = NoteUtils;

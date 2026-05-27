@@ -1,7 +1,7 @@
 /**
  * TabRenderer - Canvas-based guitar tab renderer
  */
-class TabRenderer {
+export class TabRenderer {
     constructor(canvas) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
@@ -214,7 +214,7 @@ class TabRenderer {
 /**
  * WaveformRenderer - Draws audio waveform on canvas
  */
-class WaveformRenderer {
+export class WaveformRenderer {
     constructor(canvas) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
@@ -333,6 +333,3 @@ class WaveformRenderer {
         return (x / rect.width) * this.duration;
     }
 }
-
-window.TabRenderer = TabRenderer;
-window.WaveformRenderer = WaveformRenderer;

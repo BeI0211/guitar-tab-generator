@@ -1,14 +1,16 @@
 /**
- * TabGenerator - Converts detected pitches to guitar tablature
+ * TabGenerator - Converts analyzed notes into guitar fingering positions and text TAB
  */
-class TabGenerator {
+import { NoteUtils } from './pitch-detector.js';
+
+export class TabGenerator {
     // Guitar tunings: MIDI note numbers for each string (low to high, string 6 to 1)
     static TUNINGS = {
         'standard': [40, 45, 50, 55, 59, 64],     // E2 A2 D3 G3 B3 E4
-        'drop-d':   [38, 45, 50, 55, 59, 64],     // D2 A2 D3 G3 B3 E4
-        'open-g':   [38, 43, 50, 55, 59, 62],     // D2 G2 D3 G3 B3 D4
-        'open-d':   [38, 45, 50, 54, 57, 62],     // D2 A2 D3 F#3 A3 D4
-        'dadgad':   [38, 45, 50, 55, 57, 62],     // D2 A2 D3 G3 A3 D4
+        'drop-d': [38, 45, 50, 55, 59, 64],     // D2 A2 D3 G3 B3 E4
+        'open-g': [38, 43, 50, 55, 59, 62],     // D2 G2 D3 G3 B3 D4
+        'open-d': [38, 45, 50, 54, 57, 62],     // D2 A2 D3 F#3 A3 D4
+        'dadgad': [38, 45, 50, 55, 57, 62],     // D2 A2 D3 G3 A3 D4
     };
 
     static STRING_NAMES = ['E', 'A', 'D', 'G', 'B', 'e'];
@@ -23,7 +25,7 @@ class TabGenerator {
         this.tuningName = tuning;
         this.capo = capo;
         this.openStrings = TabGenerator.TUNINGS[tuning].map(note => note + capo);
-        
+
         // Update string names for non-standard tunings
         if (tuning === 'standard') {
             this.stringNames = ['E', 'A', 'D', 'G', 'B', 'e'];
@@ -85,10 +87,10 @@ class TabGenerator {
             // Base fret penalty (slight bias towards lower frets globally)
             penalty += pos.fret * 0.1;
         }
-        
+
         if (nonOpenNotes > 0) {
             const stretch = maxFret - minFret;
-            
+
             // 물리적인 기타 넥의 칸 넓이를 반영한 동적 벌림폭(Stretch) 계산
             // 로우 프렛(1~6)은 프렛 간격이 넓어 4칸(stretch=4, 예: 1~5프렛)이 한계
             // 미들 프렛(7~11)은 간격이 좁아져 5칸(stretch=5)까지 허용
@@ -106,7 +108,7 @@ class TabGenerator {
             const currHandPos = avgFret / nonOpenNotes;
             if (handPosition > 0) {
                 const distance = Math.abs(currHandPos - handPosition);
-                penalty += distance * 3.0; 
+                penalty += distance * 3.0;
             }
         }
         return penalty;
@@ -117,7 +119,7 @@ class TabGenerator {
      */
     notesToTab(notes) {
         const tabNotes = [];
-        
+
         // 1. Group concurrent notes (within 50ms) into chords
         const chordEvents = [];
         let currentChord = [];
@@ -137,25 +139,25 @@ class TabGenerator {
 
         // 2. Process each chord event
         let handPosition = 0;
-        
+
         for (const chord of chordEvents) {
             let validCombos = this.getValidChordCombinations(chord);
             let currentTryNotes = [...chord];
-            
+
             // Drop lowest probability notes if impossible physically
             while (currentTryNotes.length > 1) {
                 let bestScoreInCurrent = Infinity;
                 if (validCombos.length > 0) {
                     bestScoreInCurrent = Math.min(...validCombos.map(c => this.scoreChordCombination(c, handPosition)));
                 }
-                
+
                 if (bestScoreInCurrent !== Infinity) {
                     break;
                 }
-                
+
                 // Sort ascending by probability and remove the least confident note
                 currentTryNotes.sort((a, b) => a.probability - b.probability);
-                currentTryNotes.shift(); 
+                currentTryNotes.shift();
                 validCombos = this.getValidChordCombinations(currentTryNotes);
             }
 
@@ -186,7 +188,7 @@ class TabGenerator {
                         nonOpenCount++;
                     }
                 }
-                
+
                 // Smoothly update running hand position
                 if (nonOpenCount > 0) {
                     const newPos = nonOpenSum / nonOpenCount;
@@ -214,13 +216,13 @@ class TabGenerator {
         }
         const maxTime = tabNotes.length > 0 ? tabNotes[tabNotes.length - 1].startTime : 0;
         const totalColumns = Math.ceil(maxTime / timeStep) + 1;
-        
+
         // Columns per measure
         const colsPerMeasure = 16;
         const colsPerLine = colsPerMeasure * measuresPerLine;
-        
+
         let output = '';
-        
+
         // Process in line chunks
         const totalLines = Math.ceil(totalColumns / colsPerLine);
 
@@ -228,7 +230,7 @@ class TabGenerator {
             const startCol = lineIdx * colsPerLine;
             const endCol = Math.min(startCol + colsPerLine, totalColumns);
             const lineWidth = endCol - startCol;
-            
+
             // Initialize 6 strings
             const strings = [];
             for (let s = 0; s < 6; s++) {
@@ -289,7 +291,7 @@ class TabGenerator {
         // Major key profiles (Krumhansl-Kessler)
         const majorProfile = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];
         const minorProfile = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
-        
+
         let bestKey = 0;
         let bestScore = -Infinity;
         let isMinor = false;
@@ -330,7 +332,7 @@ class TabGenerator {
         }
         meanA /= a.length;
         meanB /= b.length;
-        
+
         let numerator = 0, denomA = 0, denomB = 0;
         for (let i = 0; i < a.length; i++) {
             const dA = a[i] - meanA;
@@ -339,7 +341,7 @@ class TabGenerator {
             denomA += dA * dA;
             denomB += dB * dB;
         }
-        
+
         const denom = Math.sqrt(denomA * denomB);
         return denom === 0 ? 0 : numerator / denom;
     }
@@ -361,33 +363,48 @@ class TabGenerator {
 
         if (intervals.length === 0) return '-';
 
-        // Find most common interval using histogram
-        const binSize = 0.02;
-        const bins = {};
-        for (const interval of intervals) {
-            const bin = Math.round(interval / binSize) * binSize;
-            bins[bin] = (bins[bin] || 0) + 1;
-        }
+        if (intervals.length === 0) return 120;
 
-        let bestBin = 0;
-        let bestCount = 0;
-        for (const [bin, count] of Object.entries(bins)) {
-            if (count > bestCount) {
-                bestCount = count;
-                bestBin = parseFloat(bin);
-            }
-        }
+        // Use median interval
+        intervals.sort((a, b) => a - b);
+        const medianInterval = intervals[Math.floor(intervals.length / 2)];
 
-        if (bestBin === 0) return '-';
+        let bpm = Math.round(60 / medianInterval);
 
-        // Convert to BPM
-        let bpm = 60 / bestBin;
-        
-        // Normalize to reasonable range
-        while (bpm > 200) bpm /= 2;
+        // Normalize BPM to reasonable range (80-160)
         while (bpm < 60) bpm *= 2;
+        while (bpm > 180) bpm /= 2;
 
-        return Math.round(bpm);
+        return bpm;
+    }
+
+    /**
+     * Quantize notes to the nearest 16th note grid based on BPM
+     */
+    quantizeNotes(notes, bpm) {
+        if (bpm <= 0 || notes.length === 0) return notes;
+
+        // 1박자(Quarter Note)의 시간(초)
+        const beatDuration = 60 / bpm;
+        // 정밀도: 16분 음표 그리드(1/4박자)
+        const gridStep = beatDuration / 4;
+
+        for (let note of notes) {
+            // 시작 시간을 그리드에 반올림 (Snapping)
+            note.startTime = Math.round(note.startTime / gridStep) * gridStep;
+
+            // 종료 시간 스냅 (최소 1그리드 스텝 유지)
+            // startTime이 변경되었으므로 원래 지속 시간을 먼저 계산합니다.
+            let rawDuration = Math.max(0.01, note.endTime - note.startTime);
+            let quantizedDuration = Math.round(rawDuration / gridStep) * gridStep;
+
+            if (quantizedDuration < gridStep) {
+                quantizedDuration = gridStep;
+            }
+            note.endTime = note.startTime + quantizedDuration;
+        }
+
+        return notes;
     }
 
     /**
@@ -398,6 +415,10 @@ class TabGenerator {
         notes.sort((a, b) => a.startTime - b.startTime);
 
         const bpm = this.estimateBPM(notes);
+
+        // Apply Rhythm Quantization (Snap to 16th note Grid)
+        this.quantizeNotes(notes, bpm);
+
         const tabNotes = this.notesToTab(notes);
         const textTab = this.generateTextTab(tabNotes, 4, bpm);
         const key = this.detectKey(notes);
@@ -412,5 +433,3 @@ class TabGenerator {
         };
     }
 }
-
-window.TabGenerator = TabGenerator;

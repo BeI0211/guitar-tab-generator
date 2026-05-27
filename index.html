@@ -9,6 +9,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <!-- Soundfont Player for Virtual Synthesis -->
+    <script src="https://unpkg.com/soundfont-player@0.10.7/dist/soundfont-player.min.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -194,6 +196,91 @@
                 </div>
             </section>
 
+            <!-- Stem Mixer Section -->
+            <section class="stem-mixer-section hidden" id="stem-mixer-section">
+                <div class="mixer-card">
+                    <h2>🎛️ 트랙 믹서</h2>
+                    <p class="mixer-description">AI가 음원을 분리했습니다. 악보로 변환할 트랙을 선택하세요.</p>
+                    <div class="stem-grid" id="stem-grid">
+                        <div class="stem-track" data-stem="vocals">
+                            <div class="stem-icon">🎤</div>
+                            <div class="stem-info">
+                                <span class="stem-name">보컬 (Vocals)</span>
+                                <span class="stem-desc">멜로디 라인 추출</span>
+                            </div>
+                            <label class="stem-toggle">
+                                <input type="checkbox" id="stem-vocals" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <button class="stem-preview-btn" data-stem="vocals" title="미리듣기">▶</button>
+                        </div>
+                        <div class="stem-track" data-stem="guitar">
+                            <div class="stem-icon">🎸</div>
+                            <div class="stem-info">
+                                <span class="stem-name">기타 (Guitar)</span>
+                                <span class="stem-desc">기타 리프 & 코드</span>
+                            </div>
+                            <label class="stem-toggle">
+                                <input type="checkbox" id="stem-guitar" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <button class="stem-preview-btn" data-stem="guitar" title="미리듣기">▶</button>
+                        </div>
+                        <div class="stem-track" data-stem="bass">
+                            <div class="stem-icon">🎸</div>
+                            <div class="stem-info">
+                                <span class="stem-name">베이스 (Bass)</span>
+                                <span class="stem-desc">베이스 라인</span>
+                            </div>
+                            <label class="stem-toggle">
+                                <input type="checkbox" id="stem-bass" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <button class="stem-preview-btn" data-stem="bass" title="미리듣기">▶</button>
+                        </div>
+                        <div class="stem-track" data-stem="piano">
+                            <div class="stem-icon">🎹</div>
+                            <div class="stem-info">
+                                <span class="stem-name">피아노 (Piano)</span>
+                                <span class="stem-desc">기타 코드로 변환</span>
+                            </div>
+                            <label class="stem-toggle">
+                                <input type="checkbox" id="stem-piano">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <button class="stem-preview-btn" data-stem="piano" title="미리듣기">▶</button>
+                        </div>
+                        <div class="stem-track" data-stem="drums">
+                            <div class="stem-icon">🥁</div>
+                            <div class="stem-info">
+                                <span class="stem-name">드럼 (Drums)</span>
+                                <span class="stem-desc">리듬 참조용</span>
+                            </div>
+                            <label class="stem-toggle">
+                                <input type="checkbox" id="stem-drums" disabled>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <button class="stem-preview-btn" data-stem="drums" title="미리듣기">▶</button>
+                        </div>
+                        <div class="stem-track" data-stem="other">
+                            <div class="stem-icon">🎵</div>
+                            <div class="stem-info">
+                                <span class="stem-name">기타 악기 (Other)</span>
+                                <span class="stem-desc">나머지 악기</span>
+                            </div>
+                            <label class="stem-toggle">
+                                <input type="checkbox" id="stem-other">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <button class="stem-preview-btn" data-stem="other" title="미리듣기">▶</button>
+                        </div>
+                    </div>
+                    <button class="analyze-btn" id="stem-analyze-btn">
+                        <span class="btn-text">🎸 선택한 트랙 악보 생성</span>
+                    </button>
+                </div>
+            </section>
+
             <!-- Results Section -->
             <section class="results-section hidden" id="results-section">
                 <div class="results-header">
@@ -242,18 +329,103 @@
                     </div>
                 </div>
 
-                <!-- TAB Display -->
-                <div class="tab-display-container">
-                    <div class="tab-scroll-wrapper" id="tab-scroll-wrapper">
-                        <canvas id="tab-canvas" width="1200" height="600"></canvas>
+                <!-- Instrument Tabs -->
+                <div class="instrument-tabs" id="instrument-tabs">
+                    <div class="tab-buttons">
+                        <button class="tab-btn active" data-tab="guitar-tab">🎸 기타</button>
+                        <button class="tab-btn" data-tab="bass-tab">🎸 베이스</button>
+                        <button class="tab-btn" data-tab="vocals-tab">🎤 보컬 멜로디</button>
+                        <button class="tab-btn" data-tab="piano-tab">🎹 피아노→기타</button>
+                    </div>
+
+                    <!-- Guitar Tab Panel -->
+                    <div class="tab-panel active" id="guitar-tab">
+                        <div class="tab-display-container">
+                            <div class="tab-scroll-wrapper">
+                                <canvas id="tab-canvas-guitar" width="1200" height="600"></canvas>
+                            </div>
+                        </div>
+                        <div class="text-tab-container">
+                            <h3>기타 텍스트 TAB</h3>
+                            <pre class="text-tab" id="text-tab-guitar"></pre>
+                        </div>
+                        <!-- Virtual Guitar Player -->
+                        <div id="player-container-guitar" class="card player-card" style="display: none;">
+                            <div class="card-header">
+                                <h3>🎸 가상 기타리스트 재생기</h3>
+                                <div class="player-controls">
+                                    <button id="synth-play-btn-guitar" class="btn primary" data-instrument="guitar">▶ 연주 시작</button>
+                                    <button id="synth-stop-btn-guitar" class="btn secondary" data-instrument="guitar">■ 정지</button>
+                                    <span id="player-status-guitar" class="status-badge">대기 중</span>
+                                </div>
+                            </div>
+                            <div class="fretboard-wrapper">
+                                <canvas id="fretboardCanvas-guitar"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bass Tab Panel -->
+                    <div class="tab-panel" id="bass-tab">
+                        <div class="tab-display-container">
+                            <div class="tab-scroll-wrapper">
+                                <canvas id="tab-canvas-bass" width="1200" height="600"></canvas>
+                            </div>
+                        </div>
+                        <div class="text-tab-container">
+                            <h3>베이스 텍스트 TAB</h3>
+                            <pre class="text-tab" id="text-tab-bass"></pre>
+                        </div>
+                        <div id="player-container-bass" class="card player-card" style="display: none;">
+                            <div class="card-header">
+                                <h3>🎸 가상 베이스 재생기</h3>
+                                <div class="player-controls">
+                                    <button id="synth-play-btn-bass" class="btn primary" data-instrument="bass">▶ 연주 시작</button>
+                                    <button id="synth-stop-btn-bass" class="btn secondary" data-instrument="bass">■ 정지</button>
+                                    <span id="player-status-bass" class="status-badge">대기 중</span>
+                                </div>
+                            </div>
+                            <div class="fretboard-wrapper">
+                                <canvas id="fretboardCanvas-bass"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Vocals Tab Panel -->
+                    <div class="tab-panel" id="vocals-tab">
+                        <div class="tab-display-container">
+                            <div class="tab-scroll-wrapper">
+                                <canvas id="tab-canvas-vocals" width="1200" height="600"></canvas>
+                            </div>
+                        </div>
+                        <div class="text-tab-container">
+                            <h3>보컬 멜로디 텍스트 TAB</h3>
+                            <pre class="text-tab" id="text-tab-vocals"></pre>
+                        </div>
+                    </div>
+
+                    <!-- Piano Tab Panel -->
+                    <div class="tab-panel" id="piano-tab">
+                        <div class="tab-display-container">
+                            <div class="tab-scroll-wrapper">
+                                <canvas id="tab-canvas-piano" width="1200" height="600"></canvas>
+                            </div>
+                        </div>
+                        <div class="text-tab-container">
+                            <h3>피아노→기타 텍스트 TAB</h3>
+                            <pre class="text-tab" id="text-tab-piano"></pre>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Text TAB -->
-                <div class="text-tab-container">
-                    <h3>텍스트 TAB</h3>
-                    <pre class="text-tab" id="text-tab"></pre>
-                </div>
+                <!-- Backward-compatible hidden elements -->
+                <canvas id="tab-canvas" width="1200" height="600" style="display:none;"></canvas>
+                <pre id="text-tab" style="display:none;"></pre>
+                <div id="player-container" style="display:none;"></div>
+                <button id="synth-play-btn" style="display:none;"></button>
+                <button id="synth-stop-btn" style="display:none;"></button>
+                <span id="player-status" style="display:none;"></span>
+                <canvas id="fretboardCanvas" style="display:none;"></canvas>
             </section>
         </main>
 
@@ -268,9 +440,6 @@
         <span id="toast-message"></span>
     </div>
 
-    <script type="module" src="pitch-detector.js"></script>
-    <script type="module" src="tab-generator.js"></script>
-    <script type="module" src="tab-renderer.js"></script>
     <script type="module" src="app.js"></script>
 </body>
 </html>
